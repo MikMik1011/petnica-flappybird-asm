@@ -5,6 +5,16 @@ PIPECLR:	equ %01110000 ;color of the pipe
 	
 	org		32768 ; place game in the middle of the memory
 
+
+	call drawPlayer
+	call drawPipe
+	call movePipes
+	call movePipes
+	call movePipes
+	call movePipes
+
+;--------------------------------------------------------------------------------
+; routine for drawing player/bird
 drawPlayer:
 	ld		hl, 22915 ; 22915 = 22528 + 12*32 + 3
 	ld 		(hl), PLAYERCLR ;color the first block
@@ -15,89 +25,57 @@ drawPlayer:
 	ld 		(hl), PLAYERCLR ;color the first block
 	inc 	hl	;go to next one
 	ld 		(hl), PLAYERCLR	;color the second block
+	ret
 
-
-
+;--------------------------------------------------------------------------------
+; routine for drawing pipe
 drawPipe:
-	; ovde ide ona petlja za crtanje pipe-a i njihovih blokova 
 	ld		hl, 22558 ; 22558 = 22528 + 30
 	ld		bc, 31 ; number of space blocks between pipes
-	ld 		a, 24 ; number of columns on the screen
+	ld 		a, 22 ; number of rows on the screen
+	call drawPipeLoop
+	ret
 
 drawPipeLoop:
+	;halt 
 	ld 		(hl), PIPECLR ;color the first block
 	inc 	hl	;go to next one
 	ld 		(hl), PIPECLR	;color the second block
-	add 	hl, bc
-	dec 	a
-	jr 		nz, drawPipeLoop
+	add 	hl, bc ; go to next row
+	dec 	a ; decrement number of rows
+	jp 		nz, drawPipeLoop ; repeat
 	ret
 
-;===============================================================================
-; lib_random.asm
-; Originally appeared as a post by Patrik Rak on WoSF.
-;
-; generateRandom - generates random number
-; seedRandom - seeds random number generator
-;===============================================================================
+;-----------------------------------------------
+; routine for moving pipe blocks
+movePipes:
+	ld 		hl, 22528 ; first block
+	ld 		bc, 704 ; amount of blocks to move
+	call movePipesLoop
 
-; ------------------------------------------------------------------------------ 
-; Generates random number.
-;
-; Input: 
-;   NONE
-; Output: 
-;   A  - generated random number
-; ------------------------------------------------------------------------------ 
-
-generateRandom:
-
-	push	hl
-	push	de
+movePipesLoop:
 	
-_rnd:	ld	hl,0xA280   ; xz -> yw
-	ld	de,0xC0DE   ; yw -> zt
+	ld 		d, h ;save the address so we can move the pipe later
+	ld 		e, l ;save the address so we can move the pipe later
+	inc 	hl	;go to next one
+	ld 		a, (hl) ;get the block color
+	cp 		PIPECLR ;compare with the pipe color
+	jp 		nz, decreaseMovePipesCounter ;if it's not the pipe color, go to the next block
+	ld 		a, l ; save the value of l in a so we can do and operation later
+	and 	%00011111 ; mask the value of the position of pipe to check if it is in first block in a row
+	jp 		z, deletePipe ;if it's in the first block, delete it
+	ld 		a, (hl) ; move the pipe info to accumulator so we can move it to the previous block
+	ld 		(de), a ; move the pipe from accumulator to previous block
+	ld 		(hl), %00111000 ; reset current block
+	call 	decreaseMovePipesCounter ;if there are blocks to move, go to the next block
+	ret  
+	
 
-	ld	(_rnd+1),de ; x = y, z = w
-	ld 	a,e         ; w = w ^ ( w << 3 )
-	add	a,a
-	add	a,a
-	add	a,a
-	xor	e
-	ld	e,a
-	ld	a,h         ; t = x ^ (x << 1)
-	add	a,a
-	xor	h
-	ld	d,a
-	rra                 ; t = t ^ (t >> 1) ^ w
-	xor	d
-	xor	e
-	ld	h,l         ; y = z
-	ld	l,a         ; w = t
-	ld	(_rnd+4),hl
+deletePipe:
+	ld 		(hl), %00111000 ;delete the pipe
+	jp 		decreaseMovePipesCounter ;go to the next block
 
-	pop	de
-	pop	hl
-	ret
-		
-; ------------------------------------------------------------------------------ 
-; Seeds random number generator with R register. Not originally posted by
-; Patrik Rak, added later by Ivan Glisin to provide different initial values. 
-;
-; Input: 
-;   NONE
-; Output: 
-;   NONE
-; ------------------------------------------------------------------------------ 
-
-seedRandom:
-
-	push	af
-	ld	a,r
-	ld	(_rnd+4),a
-	pop	af
-	ret
-
-
-HEIGHT:	defb	12	;height of the player
-SCORE:	defb	0	;players score
+decreaseMovePipesCounter:
+	dec 	bc
+	jp 		nz, movePipesLoop ;if there are blocks to move, go to the next block
+	ret 
