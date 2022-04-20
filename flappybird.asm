@@ -1,13 +1,17 @@
 PLAYERCLR:	equ %00001000
 PIPECLR: 	equ %01110000
 BGCLR:		equ %00111000	
+PIPEOPENSIZE	equ 7
+PIPEDISTANCE	equ 13
 	
 	org 32768
 
 main:
 	ld	hl, $5962	;address of the first block
 	call 	drawPlayer
-	call 	drawWholePipe
+	call 	drawPipe
+
+	ld 	d, PIPEDISTANCE
 	call 	infinitelooptest
 
 
@@ -15,36 +19,14 @@ main:
 	ret 
 
 infinitelooptest:
-	call shiftScreen
+	call	shiftScreen
 	halt
 	halt
 	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
-	halt
+	dec	d
+	call	z, drawPipe
 	
-	jp infinitelooptest
+	jp	infinitelooptest
 	ret
 	;-------------------------------------
 ; player draw routine
@@ -58,18 +40,37 @@ drawPlayer:
 ;------------------------------------------
 ; pipe draw routine
 ; it draws the pipe in the last 2 columns
-drawWholePipe:
-	ld	hl, $581E 	; 2nd last block in first row
-	ld 	b, 22 		; number of rows
-	call drawPipeRowLoop
-		
+drawPipe:
+	ld	hl, $581F 	; last block in first row
+
+	call Generaterandom	; generate a random size of first pipe part
+	and	%00001111	; check if it is larger than 16
+	jp	z, drawPipe	; if so, jump to start of the function
+	ld 	b, a 		; copy size of first part from accumulator to loop counter
+	ld 	c, a 		; save size of first part to c because it will be needed later
+
+	ld	a, PIPECLR	; set color to pipe color
+	call 	drawPipeRowLoop	; draw first part
+
+	ld	a, BGCLR	; set color to background color (invisible)
+	ld 	b, PIPEOPENSIZE ; set amount of needed blocks to size of opening
+	call 	drawPipeRowLoop	; draw the hole/opening
+
+	ld 	a, 24		; load total row size to accumulator
+	sub 	c		; subtract the size of the first opening
+	sub 	PIPEOPENSIZE	; also subtract the size of the opening
+	ld 	b, a		; set the remainder as the amount of remaining blocks for drawing second part of pipe
+	ld 	a, PIPECLR	; set color to pipe color
+	call 	drawPipeRowLoop	; draw the second part
+
+	ld 	d, PIPEDISTANCE	; reset the pipe drawing thing
 	ret 
 
 drawPipeRowLoop:
-	ld 	(hl), PIPECLR 	; paint it in pipe color
+	ld 	(hl), a 	; paint it in pipe color
 	ld 	de, 32 		; load number of blocks needed to get below the first block
 	add 	hl, de 		; jump to the block below the first block
-	djnz 	drawPipeRowLoop ; loop until whole pipe has been drawn
+	djnz	drawPipeRowLoop	; loop until all needed rows are drawn
 	ret 
 ;------------------------
 
@@ -105,3 +106,71 @@ shiftScreenRowLoop:
 	inc 	hl
 
 	ret 
+
+
+
+
+;===============================================================================
+; lib_random.asm
+; Originally appeared as a post by Patrik Rak on WoSF.
+;
+; generateRandom - generates random number
+; seedRandom - seeds random number generator
+;===============================================================================
+
+; ------------------------------------------------------------------------------ 
+; Generates random number.
+;
+; Input: 
+;   NONE
+; Output: 
+;   A  - generated random number
+; ------------------------------------------------------------------------------ 
+
+generateRandom:
+
+	push	hl
+	push	de
+	
+_rnd:	ld	hl,0xA280   ; xz -> yw
+	ld	de,0xC0DE   ; yw -> zt
+
+	ld	(_rnd+1),de ; x = y, z = w
+	ld 	a,e         ; w = w ^ ( w << 3 )
+	add	a,a
+	add	a,a
+	add	a,a
+	xor	e
+	ld	e,a
+	ld	a,h         ; t = x ^ (x << 1)
+	add	a,a
+	xor	h
+	ld	d,a
+	rra                 ; t = t ^ (t >> 1) ^ w
+	xor	d
+	xor	e
+	ld	h,l         ; y = z
+	ld	l,a         ; w = t
+	ld	(_rnd+4),hl
+
+	pop	de
+	pop	hl
+	ret
+		
+; ------------------------------------------------------------------------------ 
+; Seeds random number generator with R register. Not originally posted by
+; Patrik Rak, added later by Ivan Glisin to provide different initial values. 
+;
+; Input: 
+;   NONE
+; Output: 
+;   NONE
+; ------------------------------------------------------------------------------ 
+
+seedRandom:
+
+	push	af
+	ld	a,r
+	ld	(_rnd+4),a
+	pop	af
+	ret
