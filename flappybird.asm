@@ -61,7 +61,8 @@ drawPlayer:
 drawWholePipe:
 	ld	hl, $581E 	; 2nd last block in first row
 	ld 	b, 22 		; number of rows
-	call drawPipeRowLoop	
+	call drawPipeRowLoop
+		
 	ret 
 
 drawPipeRowLoop:
@@ -75,9 +76,13 @@ drawPipeRowLoop:
 ;------------------------
 ; screen shift routine
 shiftScreen:
+	ld 	hl, $5962
+	ld 	(hl), BGCLR 	; make player invisible to hide its move
 	ld 	hl, $5801 	; load block which needs to be moved in the row
 	ld 	c, 24 		; number of rows
 	call	shiftScreenWholeLoop
+	ld 	hl, $5962
+	ld 	(hl), PLAYERCLR ; make player visible again
 	ret 
 
 shiftScreenWholeLoop:
