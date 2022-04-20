@@ -4,11 +4,14 @@ BGCLR:		equ %00111000
 PIPEOPENSIZE	equ 7
 PIPEDISTANCE	equ 13
 SPACEPORT	equ $7FFE
+JUMPDIST 	equ 5
+FALLINT 	equ 3
 	
 	org 32768
 
 main:
-	ld	hl, $5962	;address of the first block
+
+	ld	hl, (COORDS)	;address of the first block
 	call 	drawPlayer
 	call 	drawPipe
 
@@ -20,7 +23,13 @@ main:
 
 infinitelooptest:
 	call	shiftScreen
-	call 	scanKeyboard
+	call 	playerJump
+	call 	scanSpaceDown
+	call 	scanSpaceReleased
+	ld 	a, (PADA)
+	dec 	a
+	call 	z, playerfall
+	ld 	(PADA), a
 	halt
 	halt
 	halt
@@ -78,12 +87,15 @@ drawPipeRowLoop:
 ;------------------------
 ; screen shift routine
 shiftScreen:
-	ld 	hl, $5962
+	ld 	hl, (OLDCOORDS)
 	ld 	(hl), BGCLR 	; make player invisible to hide its move
 	ld 	hl, $5801 	; load block which needs to be moved in the row
 	ld 	c, 24 		; number of rows
 	call	shiftScreenWholeLoop
-	ld 	hl, $5962
+	ld 	hl, (COORDS)
+	ld 	a, (hl)
+	cp 	PIPECLR
+	jp 	z, 0
 	ld 	(hl), PLAYERCLR ; make player visible again
 	ret 
 
@@ -108,16 +120,77 @@ shiftScreenRowLoop:
 
 	ret 
 
+playerJump:
+	ld 	a, (TOJUMP) 	; load remaining jumps
+	cp 	0		; compare them with zero
+	call 	nz, movePlayerUp
+	ret 
 
-scanKeyboard:
+movePlayerUp:
+	dec 	a 		; decrease the number of remaining jumps
+	ld 	(TOJUMP), a	; save it to TOJUMP var
+	ld 	bc, (COORDS)	; load player coords to registry a
+	ld 	(OLDCOORDS), bc ; remember old coords in OLDCOORDS var
+	ld 	a, 32
+	call 	govno
+	ld 	(COORDS), bc 	; set new coords to COORDS var
+	ret 
+
+govno:
+	dec bc
+	dec a 
+	jp nz, govno
+	ret 
+
+playerfall:
+
+	ld 	bc, (COORDS)
+	ld 	a, 32
+	call 	novogovno
+	ld 	(COORDS), bc
+	ld 	a, FALLINT
+	ret
+
+novogovno:
+	inc bc
+	dec a 
+	jp nz, novogovno
+	ret 
+	
+scanSpaceDown:
+	ld 	a, (SPACEPRESSED) ; check variable that shows if the key is pressed
+	cp 	0		  ; compare it with 0
+	jp 	z, scanSpacePressed ; if it really isn't pressed, scan keyboard, else just return
+	ret
+
+scanSpacePressed:
 	ld	bc, SPACEPORT	; load space port adress
 	in	a, (c)		; i have no idea what this really does but it gets key states i guess
 	bit 	0, a		; check if space is pressed by checking its bit (SPACE RSHIFT M N B = 0 1 2 3 4)
-	call	z, playerJump	; if is pressed then make player jump (NEEDS TO BE IMPLEMENTED)
+	call	z, addPlayerJump; if is pressed then make player jump (NEEDS TO BE IMPLEMENTED)
 	ret
 
-playerJump:
+scanSpaceReleased:
+	ld	bc, SPACEPORT	; load space port adress
+	in	a, (c)		; i have no idea what this really does but it gets key states i guess
+	bit 	0, a		; check if space is pressed by checking its bit (SPACE RSHIFT M N B = 0 1 2 3 4)
+	call	nz, setSpaceUp	; if is pressed then make player jump (NEEDS TO BE IMPLEMENTED)
+	ret
+
+setSpaceUp:
+	ld 	a, 0
+	ld 	(SPACEPRESSED), a ; set the variable that shows if the key is pressed to 1
 	ret 
+
+;-----------------------------------------------
+addPlayerJump:
+	ld 	a, 1
+	ld 	(SPACEPRESSED), a
+	ld 	a, (TOJUMP)
+	add 	a, JUMPDIST ; add jump distance to remaining jumps variable
+	ld 	(TOJUMP), a
+	ret
+
 
 
 ;===============================================================================
@@ -185,3 +258,9 @@ seedRandom:
 	pop	af
 	ret
 
+TEST: 	defb $69, $69, $69 ; split program from data, mainly for debugging
+OLDCOORDS: 	defw $5962
+COORDS:		defw $5962
+TOJUMP:		defb 0 ;80FE
+SPACEPRESSED: 	defb 0
+PADA:		defb 10
