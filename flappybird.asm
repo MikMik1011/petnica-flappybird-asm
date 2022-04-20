@@ -3,6 +3,7 @@ PIPECLR: 	equ %01110000
 BGCLR:		equ %00111000	
 PIPEOPENSIZE	equ 7
 PIPEDISTANCE	equ 13
+SPACEPORT	equ $7FFE
 	
 	org 32768
 
@@ -11,7 +12,6 @@ main:
 	call 	drawPlayer
 	call 	drawPipe
 
-	ld 	d, PIPEDISTANCE
 	call 	infinitelooptest
 
 
@@ -20,6 +20,7 @@ main:
 
 infinitelooptest:
 	call	shiftScreen
+	call 	scanKeyboard
 	halt
 	halt
 	halt
@@ -108,6 +109,15 @@ shiftScreenRowLoop:
 	ret 
 
 
+scanKeyboard:
+	ld	bc, SPACEPORT	; load space port adress
+	in	a, (c)		; i have no idea what this really does but it gets key states i guess
+	bit 	0, a		; check if space is pressed by checking its bit (SPACE RSHIFT M N B = 0 1 2 3 4)
+	call	z, playerJump	; if is pressed then make player jump (NEEDS TO BE IMPLEMENTED)
+	ret
+
+playerJump:
+	ret 
 
 
 ;===============================================================================
@@ -174,3 +184,4 @@ seedRandom:
 	ld	(_rnd+4),a
 	pop	af
 	ret
+
