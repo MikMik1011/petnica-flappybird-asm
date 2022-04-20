@@ -8,16 +8,44 @@ main:
 	ld	hl, $5962	;address of the first block
 	call 	drawPlayer
 	call 	drawWholePipe
-	call 	shiftScreen
-	halt
-	call 	shiftScreen
-	halt
-	call 	shiftScreen
-	halt
-	call 	shiftScreen
-	halt
+	call 	infinitelooptest
+
+
+	
 	ret 
 
+infinitelooptest:
+	call shiftScreen
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	halt
+	
+	jp infinitelooptest
+	ret
 	;-------------------------------------
 ; player draw routine
 ; usage: pass address of the first player block, it will handle the rest 
@@ -68,5 +96,7 @@ shiftScreenRowLoop:
 	djnz shiftScreenRowLoop
 	dec	hl		; go to last block in the row
 	ld	(hl), BGCLR	; paint the block with the background color
+	inc 	hl
+	inc 	hl
 
 	ret 
